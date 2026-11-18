@@ -1,0 +1,22 @@
+id = "iceandfire"
+name = "Ice and Fire: Fire Dragon"
+version = "0.2.0"
+description = """The fire dragon, end to end: the red dragon egg incubates in flame for 7,200 ticks,
+hatches into a tamed dragon bonded to the nearest player, and the dragon flies (hover lift,
+wild pursuit of a player within 128 blocks, holding at the 2-block tackle reach). One flat
+package: the carried egg item, egg block, dragon type, models and lang beside the Rust code."""
+authors = ["IAFEnvoy", "xiaowu", "uoay", "AdLf0208"]
+# A native mod: Rust in src/, compiled by the launcher against the game build [native] pins,
+# beside data/ and assets/. The id is the resource namespace and the only identity: Cargo's
+# package name and version are not the mod's.
+api = "0.2"
+# "both" is the installation side, not the hook's: an integrated server belongs to the client
+# installation, so a single-player world or a LAN host needs both.
+side = "both"
+# registries: "May add blocks, items, mob effects and entity types to your worlds".
+capabilities = ["registries"]
+
+[native]
+game = "26.3"
+horizon = "0b14f8acfd97fa2c750e42795249dcc981178ca4"
+mixins = "e59da9094f0c2fdda6c627fe9eff22dec6a906f0"

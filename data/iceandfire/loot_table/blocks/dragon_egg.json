@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "iceandfire:dragonegg_red"
+        }
+      ],
+      "conditions": [
+        {
+          "condition": {
+            "type": "minecraft:survives_explosion"
+          }
+        }
+      ]
+    }
+  ]
+}

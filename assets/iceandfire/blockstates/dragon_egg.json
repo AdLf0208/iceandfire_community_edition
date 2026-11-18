@@ -1,0 +1,220 @@
+{
+  "variants": {
+    "age=0": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=1": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=2": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=3": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=4": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=5": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=6": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=7": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=8": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=9": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=10": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=11": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=12": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=13": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=14": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=15": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=16": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=17": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=18": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=19": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=20": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=21": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=22": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=23": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=24": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=25": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=26": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=27": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=28": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=29": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=30": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=31": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=32": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=33": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=34": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=35": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=36": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=37": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=38": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=39": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=40": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=41": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=42": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=43": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=44": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=45": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=46": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=47": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=48": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=49": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=50": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=51": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=52": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=53": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=54": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=55": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=56": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=57": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=58": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=59": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=60": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=61": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=62": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=63": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=64": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=65": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=66": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=67": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=68": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=69": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=70": {
+      "model": "iceandfire:block/dragon_egg"
+    },
+    "age=71": {
+      "model": "iceandfire:block/dragon_egg"
+    }
+  }
+}
