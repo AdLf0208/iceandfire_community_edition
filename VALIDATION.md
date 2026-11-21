@@ -1,50 +1,92 @@
-# Ice and Fire — validation ladder (slice 1, SDK package)
+# Ice and Fire — validation ladder (slice 2: the bite, and the first in-game leg)
 
-Build **0b14f8acfd97fa2c750e42795249dcc981178ca4** (game 26.3), mixins
-`e59da9094f0c2fdda6c627fe9eff22dec6a906f0`, mod API 0.2. Every build/test ran inside a
-`ports/tools/build-slot.sh` lease with `CARGO_INCREMENTAL=0`; no `--target-dir` was passed.
+Build **`0a875da91dbb0fdcb7ba8c42c11341aa229af51a`** (game 26.3, Nightly 2026-11-20), mixins
+`e59da9094f0c2fdda6c627fe9eff22dec6a906f0`, mod API 0.2, launcher 0.2.92, rust 1.99.1. Every
+cargo/test/build step ran inside a `ports/tools/build-slot.sh` lease with `CARGO_INCREMENTAL=0`;
+no `--target-dir` was passed. (`cargo horizon-mod` exists only on this box, so those steps run
+with `BUILD_LOCAL=1`; the unit tests/clippy there too.)
+
+## The slice
+
+The dragon's **bite** — `notes.md` §"Slice 2" has the rule, the upstream lines and the red→green
+record. Package version **0.2.1**, repinned from `0b14f8a` to `0a875da` (`none of the 176 items
+it uses changed`).
+
+## Ladder
 
 | # | Step | Command | Evidence | Result |
 |---|---|---|---|---|
-| 1 | runtime carried byte-identical | `cmp src/runtime.rs evidence/…/pre-sdk/mixins/iceandfire/runtime.rs` | `evidence/iceandfire/runtime-identity.log` | **exit 0** (identical), sha256 `b28ea3dc…02279` |
-| 2 | runtime + glue tests | `cargo test --offline` | `evidence/iceandfire/runtime-test.log` | **18 passed**, 0 failed (15 runtime + 3 glue) |
-| 3 | lints | `cargo clippy --offline --all-targets -- -D warnings` | `evidence/iceandfire/clippy.log` | **exit 0**, 0 warnings |
-| 4 | format | `rustfmt --edition 2024 --check src/*.rs` | run output | **exit 0** (the fetched SDK is not formatted: `cargo fmt --all` would rewrite `.horizon/sdk/`) |
-| 5 | package build | `cargo horizon-mod build` | `evidence/iceandfire/hmod-build.log` | `Built ./target/horizon-mod/iceandfire.hmod`, **exit 0** |
-| 6 | package check | `cargo horizon-mod check iceandfire.hmod` | `evidence/iceandfire/hmod-check.log` | **exit 0**: `native-mod, format native-1/0b14f8a…/e59da90…, for 26.3`, 41,200 B |
-| 7 | fits the build | `cargo horizon-mod fits iceandfire.hmod` | `evidence/iceandfire/hmod-fits.log` | **exit 0**: `0b14f8a  made for` |
-| 8 | entries | `unzip -l iceandfire.hmod` | `evidence/iceandfire/hmod-entries.log` | **21 entries**: manifest, Cargo, 3 sources, 2 licence files, README, `uses.json`, 6 assets, 5 data |
-| 9 | determinism | two `cargo horizon-mod build` runs | `evidence/iceandfire/hmod-determinism.log` | same sha256 `6832d305…7f63` both times |
-| 10 | API probe (damage / mount / goals) | `cargo check` in `evidence/iceandfire/api-probe/` | `evidence/iceandfire/api-probe.log` | **exit 0**: `EntityRef::hurt`, `EntityRef::start_riding` and a custom `Goal` type-check on a hook's `ServerHost` |
-| 11 | skills gate | `python3 ports/tools/check-skills.py --notes ports/iceandfire` | run output | `SKILLS GATE: PASS` |
+| 1 | red: the bite's rule | `cargo test --offline` before the code | `evidence/iceandfire/sdk-test-red.log` | **exit 101**: `error[E0425]: cannot find value `BITE_ANIM_TICKS` in this scope` … `23 previous errors` |
+| 2 | tests | `cargo test --offline` | `evidence/iceandfire/sdk-test.log` | **26 passed**, 0 failed (18 carried + 8 bite) |
+| 3 | lints | `cargo clippy --offline --all-targets -- -D warnings` | `evidence/iceandfire/sdk-clippy.log` | **exit 0**, 0 warnings |
+| 4 | format | `rustfmt --edition 2024 --check src/*.rs` | run output | **exit 0** (the fetched SDK is never formatted) |
+| 5 | build ×2 | `rm -f Cargo.lock && cargo horizon-mod build` | `sdk-build-1.log`, `sdk-build-2.log` | both **exit 0**, sha256 `91b36a16…2d1d769` both times, **`cmp` identical** |
+| 6 | package check | `cargo horizon-mod check iceandfire.hmod` | `evidence/iceandfire/sdk-check.log` (prints the file's sha first) | **exit 0**: `iceandfire 0.2.1 (native-mod, format native-1/0a875da…/e59da90…, for 26.3)`, `43,248 bytes, SHA-256 91b36a16…` |
+| 7 | fits, the pin | `cargo horizon-mod fits iceandfire.hmod --build 0a875da` | `evidence/iceandfire/sdk-fits.log` (prints the sha) | **exit 0**: `0a875da  made for` |
+| 8 | fits, a different build | `cargo horizon-mod fits iceandfire.hmod --build 0b14f8a` | `evidence/iceandfire/sdk-fits-other.log` (prints the sha) | **exit 0**: `0b14f8a  fits` |
+| 9 | gate | `python3 ports/tools/verify-sdk-package.py iceandfire` | run output | **1/1** (package, runtime byte-identical, no packed `Cargo.lock`, 26 tests, 0 clippy warnings, check, fits, skills) |
+| 10 | skills gate | `python3 ports/tools/check-skills.py --notes ports/iceandfire --strict` | run output | **PASS** |
 
-## Deliverables
+## In-game leg (`tools/e2e.sh`, launcher-built game)
+
+`ports/tools/launcher-game.sh build iceandfire` → `native-0a875da-…`; the exports come from
+`launcher-game.sh env iceandfire`; each leg runs in a slot lease (`--step e2e`). The End void at
+x=200, a stone floor at y=100, headless, creative, the world seed 20261105.
+
+| Leg | Log | Verdict |
+|---|---|---|
+| default (A–F) | `evidence/iceandfire-e2e/e2e-default.log` | **`PASS` + `EXIT:0`** on the delivered package (sha `91b36a16…` printed in the log) |
+| red, the previous package (`0.2.0`, no bite) | `evidence/iceandfire-e2e/e2e-red-bite-absent.log` | **`FAIL` + `EXIT:1`**: `the wild dragon never hurt the player over 90 ticks (health 20.0 … 20.0)` |
+| selftest (`SELFTEST=1`) | `evidence/iceandfire-e2e/e2e-selftest.log` | **`FAIL` + `EXIT:1`**: the tamed control's inversion trips |
+| control game (`CONTROL_ONLY=1`, `GAME=$CONTROL_GAME`) | `evidence/iceandfire-e2e/e2e-control.log` | **`FAIL` + `EXIT:1`**: the ids are unknown without the package |
+| log gate | `python3 ports/tools/check-e2e-logs.py iceandfire-e2e --strict` | **4/4 ok**, exit 0 |
+
+What the default leg asserts (each parses a `ctl` reply; see the script's header):
+
+* **A the bite** — survival player at 20.0; a wild `iceandfire:fire_dragon` six blocks away;
+  the health series (every 5 ticks for 90) drops **exactly 1.0** per step: `20.0->19.0
+  19.0->18.0 18.0->17.0 17.0->16.0`.
+* **B the tamed control** — a dragon with `{"iceandfire:Tamed":1b}` three blocks away leaves
+  the health at 16.0 for the same window; a `/kill`ed dragon is gone afterwards.
+* **C the carried content** — 3 egg items given and read back; `iceandfire:no_such_item`
+  refused; the item places `iceandfire:dragon_egg[age=0]`.
+* **D the flame differential** — after the same window: egg on stone `age=0`, egg on magma `age=7`.
+* **E the hatch** — the magma egg's 7,200 ticks (`age 29/49/69` at 2,000/4,000/6,000 ticks) end
+  in air and one dragon with `20.0` health, `"iceandfire:Tamed": 1b` and
+  `"iceandfire:Owner": [I; …]`.
+* **F the loot table** — a vanilla barrel broken beside it drops 1 (`{"minecraft:barrel":1}`),
+  the egg block drops 1 (`{"iceandfire:dragonegg_red":1}`), and `tools/data_shape.py` passes on
+  the package.
+
+Deliverable:
 
 ```
-ports/iceandfire/iceandfire.hmod   41,200 B
-   b4023b521155e131ae7f17005c79fab8c5735a0ccaf86e2702692fdb59712109   21 entries
+ports/iceandfire/iceandfire.hmod   43,248 B
+   91b36a165ade990bb7b4b7b52554b6c768eceeef435e8248039ae53e32d1d769   20 entries
 ```
 
-The package holds `horizon-mod.toml`, `Cargo.toml`, `Cargo.lock`, `src/{lib,glue,runtime}.rs`,
-`LICENSE`, `LICENSE-NOTICE.md`, `README.md`, the generated `uses.json`, and the carried
-`assets/iceandfire/…` and `data/iceandfire/…`. It is the whole mod: content and code.
+`horizon-mod.toml`, `Cargo.toml`, `src/{lib,glue,runtime}.rs`, `LICENSE`, `LICENSE-NOTICE.md`,
+`README.md`, the generated `uses.json`, and the carried `assets/iceandfire/…` +
+`data/iceandfire/…`. No `Cargo.lock` is packed.
 
 ## Not covered by this ladder
 
-- **No in-game leg.** The SDK format runs through `horizon-launcher` (`cargo horizon-mod run`
-  answers *"code mods run through the launcher's native build: horizon-launcher native-build .
-  --trust-native-code"*), which is not installed on this machine, and the launcher is a
-  separate product (`playhorizon.dev`), not part of the release assets. So no `horizon-ctl`
-  transcript was produced for this migration, and none is claimed.
-- **The last in-game evidence is the `.hnmod` slice** (old pin `1d63e0a`, `tools/e2e.sh`,
-  `PASS` + `EXIT:0`, logs at `evidence/iceandfire/e2e-{dev,embedded,selftest}.log`, source at `evidence/iceandfire/pre-sdk/`): with the egg on stone it aged
-  **0** in the same window that took **3** ages on magma; the hatch produced `Tamed 1b`, an
-  `Owner` and health **20.0** (=500×0.04); the dragon rose **68.3 → 71.0** in 30 ticks while
-  a cow and a wandering trader kept their height; a wild dragon closed **16.15 → 1.35** and
-  held; the selftest leg failed with `EXIT:1`; the embedded-content leg loaded the content
-  from the bundle. Those assertions are the behaviour this migration must preserve, and the
-  glue that produces them is the same five moments (place → arm → scheduled tick → hatch →
-  entity tick), now expressed against the SDK.
-- **A world reload with a live tamed dragon** (does the `iceandfire:*` tag set survive a
-  save/load?) — the `.hnmod` e2e did not reload either; the tags ride the entity's saved
-  data through `summon`/`nbt`.
+* **The breath weapon and the rider controls** (gap 7): the cone of fire blocks and the fire
+  charge projectile, and any mount control surface.
+* **Ageing/growth, the dragons' own loot tables, the other 21 entity types, the roosts and
+  their worldgen, the other egg colours, the gear families, the bestiary** (gap 8).
+* **The dragon's own model and texture** (gap 3) — it draws its template's (a wandering
+  trader's) model. `--headless` legs cannot judge a look; the block's and item's models are
+  carried but not asserted.
+* **A world reload with a live tamed dragon** — the tags ride the entity's saved data through
+  `summon`/`nbt`, which the hatch leg reads back; a save/quit/relaunch of that dragon is still
+  untested.
+* **A visual leg** — everything here is `--headless`.
+
+## Pre-SDK record (the `.hnmod` slice at `1d63e0a`, kept for reading)
+
+`evidence/iceandfire/e2e-{dev,embedded,selftest}.log`, source at `evidence/iceandfire/pre-sdk/`:
+with the egg on stone it aged **0** in the same window that took **3** ages on magma; the hatch
+produced `Tamed 1b`, an `Owner` and health **20.0**; the dragon rose **68.3 → 71.0** in 30 ticks
+while a cow and a wandering trader kept their height; a wild dragon closed **16.15 → 1.35** and
+held; the selftest leg failed with `EXIT:1`.

@@ -1,19 +1,148 @@
-# Ice and Fire Community Edition — port notes (slice 1: one fire dragon)
+# Ice and Fire Community Edition — port notes (slice 1: the fire dragon; slice 2: its bite)
 
-SDK package at Horizon **`0b14f8acfd97fa2c750e42795249dcc981178ca4`** (game 26.3, build
-2026-11-18), mixins **`e59da9094f0c2fdda6c627fe9eff22dec6a906f0`**, mod API **0.2**, launcher
-≥ 0.2.70. This file is the migration record of the `.hnmod` slice into the flat SDK package;
-the retired layout is kept for reading at
-`ports/_shared/evidence/iceandfire/pre-sdk/`.
+SDK package at Horizon **`0a875da91dbb0fdcb7ba8c42c11341aa229af51a`** (game 26.3, Nightly
+2026-11-20), mixins **`e59da9094f0c2fdda6c627fe9eff22dec6a906f0`**, mod API **0.2**, launcher
+0.2.92. Slice 1 was migrated from the retired `.hnmod` layout to the flat SDK package; that
+record is kept below and the old layout is readable at
+`ports/_shared/evidence/iceandfire/pre-sdk/`. **Slice 2 re-pinned the package** from
+`0b14f8a` to `0a875da` (`cargo horizon-mod update --horizon 0a875da…`: *"none of the 176
+items it uses changed"*) and added the dragon's **bite**, with the package's **first in-game
+leg** (`tools/e2e.sh`, `ports/_shared/evidence/iceandfire-e2e/`).
 
 | | |
 |---|---|
 | Mod | Ice And Fire Community Edition `2.0-beta.17` (`iceandfire-2.0-beta.17.jar`, **20,848,811 B**, 5,589 entries, sha256 `ee523494…5f8d90f0`) |
 | Class / tier | `content` / **deep** (core, P0) — entities and AI |
 | Licence | **LGPL-3.0** (jar `META-INF/neoforge.mods.toml`: `license = "LGPL-3.0"`; authors **IAFEnvoy, xiaowu, uoay**), **rank 1** — publishable under the same licence with the complete source; local-only until the maintainer approves (ARCHITECTURE.md §8) |
-| Approach from `modpacks.md` | `deep`: content for the egg item/block and the entity type, agent-written code for incubation, the hatch and the dragon's flight/targeting |
-| Slice | **the fire dragon, end to end** — egg → flame incubation → hatch (tamed, owned) → flight and pursuit; every other entity, the roosts and the gear are stated gaps |
+| Approach from `modpacks.md` | `deep`: content for the egg item/block and the entity type, agent-written code for incubation, the hatch, the dragon's flight/targeting and its bite |
+| Slice 1 | **the fire dragon, end to end** — egg → flame incubation → hatch (tamed, owned) → flight and pursuit |
+| Slice 2 | **the bite** — a wild dragon that reaches its target bites for the jar's `ATTACK_DAMAGE`, one hit per 35-tick animation; a tamed dragon never does; the package's first in-game leg covers the carried content too |
 | Package | one flat `.hmod`: `horizon-mod.toml` + `Cargo.toml` + `src/` + `assets/` + `data/` |
+
+## Slice 2 — the bite (2026-11-21)
+
+**Gap it comes from** — this file, gap 7:
+
+> **Melee and riding are *available* at this API but not in this slice.** … They are the
+> next slice (bite/breath, rider controls), not this migration's scope.
+
+Slice 2 takes the **bite** half; the breath weapon (fire-block cone + a fire charge) and the
+rider controls stay stated gaps (gap 7, below). Tier **deep** (entities and AI), the port's own
+row; the slice adds no block, item or machine.
+
+### The rule, and where every number comes from
+
+Upstream read at `IAFEnvoy/IceAndFire-CE` **`15588a8a`** (2026-11-21; the clone is deleted
+again, the jar stays as the licence evidence).
+
+| Fact | Value | Source |
+|---|---|---|
+| bite animation | **35 ticks** | `entity/FireDragonEntity.java:52` `ANIMATION_BITE = Animation.create(35)` |
+| a bite starts when | the target is inside `getBoundingBox().inflate(2.5 + getRenderSize()*0.33)` | `FireDragonEntity.java:107-110` (`aiStep` → `doHurtTarget`) |
+| `doHurtTarget` itself | sets the animation, deals no damage | `FireDragonEntity.java:86-106` |
+| the hit lands on | animation tick **> 15 && < 25** | `entity/util/dragon/IafDragonLogic.java:406-410` |
+| the hit's reach | `getRenderSize()*0.2574*2 + 2` | `IafDragonLogic.java:405` |
+| damage | `(int) ATTACK_DAMAGE` = **1** at age 0 | `IafDragonLogic.java:408`, `DragonBaseEntity.java:1900-1903`, `bakeAttributes` |
+| render size, stage 1, age 0 | **1.0** | `DragonSize.java:6-10` (`x0` 1, step × `ageFactor` 0), `DragonBaseEntity.getRenderSize():1888` |
+| the source | `damageSources().mobAttack(this.dragon)` | `IafDragonLogic.attackTarget():245-247` |
+| who may be bitten | a wild dragon's target; a tamed dragon has none | `DragonAITargetNonTamedGoal.canUse():29-34` |
+
+So at age 0: aggro box **2.83** blocks, bite reach **2.5148**, damage **1.0**, one landed hit
+per 35-tick animation.
+
+`src/runtime.rs` holds the numbers and the state machine (`aggro_inflate`, `bite_reach`,
+`within_reach`, `grown`, `intersects`, `Bite::start/step`, `bite_tick`); `src/glue.rs` runs it
+inside `entity_tick_pre`. One stated semantic difference: upstream calls `attackTarget` on
+**each** tick of 16..24 and the engine's hurt cooldown absorbs all but the first, so the port
+applies the hit once, on the window's first tick.
+
+### TDD: red, then green
+
+| Step | Verbatim |
+|---|---|
+| unit red (`sdk-test-red.log`) | `error[E0425]: cannot find value BITE_ANIM_TICKS in this scope` … `error: could not compile iceandfire (lib test) due to 23 previous errors` |
+| unit green (`sdk-test.log`) | `test result: ok. 26 passed; 0 failed` (18 carried + 8 new) |
+| in-game red, the **previous package** (`0.2.0`, same pin, no bite; `iceandfire-0.2.0-bite-absent.hmod` sha256 `440fcfb5…`) | `FAIL: the wild dragon never hurt the player over 90 ticks (health 20.0 20.0 … 20.0)` — `e2e-red-bite-absent.log`, `EXIT:1` |
+| in-game green (`e2e-default.log`) | `drops: 20.0->19.0 19.0->18.0 18.0->17.0 17.0->16.0` — four bites in 90 ticks, each exactly 1.0 |
+| the tamed control | `the tamed dragon did not bite` (health `16.0` for 90 ticks at 3 blocks) |
+| selftest (`e2e-selftest.log`) | `FAIL: SELFTEST: the tamed control did not trip (no health change on a tamed dragon)`, `EXIT:1` |
+| control game (`e2e-control.log`) | `FAIL: control: iceandfire:dragonegg_red is unknown to the game, so it comes from this package`, `EXIT:1` |
+
+### The in-game leg (the package's first)
+
+`tools/e2e.sh` — The End void at x=200, a stone floor at y=100, launcher-built game, headless.
+Six legs: **A** the bite (a wild dragon six blocks away, a survival player, the health series
+sampled every 5 ticks: every drop is exactly 1.0, ≥1 hit, the first drop `20.0->19.0`); **B**
+the tamed control (a dragon with a quoted `{"iceandfire:Tamed":1b}` tag three blocks away does
+not hurt the player, and a `/kill`ed dragon is removed); **C** the carried content (the egg
+item given and read back, an unknown id refused, the item places `iceandfire:dragon_egg[age=0]`);
+**D** the flame differential (an egg on stone keeps `age=0` over the window in which the egg on
+magma reaches `age=7`); **E** the hatch (the magma egg's 7,200 ticks end in air and one
+`iceandfire:fire_dragon` with `20.0` health, `"iceandfire:Tamed": 1b` and an
+`"iceandfire:Owner": [I; …]`); **F** the loot table (a vanilla barrel broken beside the egg
+drops 1, the egg drops 1 egg) plus `tools/data_shape.py` on the package.
+
+The coverage table for what the package carries is below, under **Coverage**.
+
+### Measured at this pin (slice 2)
+
+1. **`EntityRef::tick_count` reads 0 inside `entity_tick_pre`.** The first bite implementation
+   keyed the animation on it and every probe line read `now=0`, so no bite ever reached its
+   window. The animation now counts its own ticks (one `step` per dragon tick), which is also
+   what upstream's `Animation` does. Issue shape: *"`entity_tick_count` should report
+   `Entity.tickCount` at the tick hooks; it reports 0."*
+2. **The pin's SNBT parser refuses an unquoted namespace in a key.** `/summon … {iceandfire:Tamed:1b}`
+   answers `Expected literal ,` at the `}`; `{"iceandfire:Tamed":1b}` is accepted (a quoted key,
+   `data get entity …` then prints `"iceandfire:Tamed": 1b`). Harness note, not a port bug.
+3. **A `/kill`ed dragon stayed in the world at 0 health and kept flying**, because the port
+   cancels the template's tick and the death tick is what removes a mob. Fixed: a dragon that
+   is not alive (or at 0 health) is discarded and its tick is left to the game. The e2e asserts
+   it (leg B: `a killed dragon is removed by the game`).
+4. **The egg's first look has already run when `place` replies.** Measured cadence: one `age`
+   step per ~100 ticks (age 29 at 2,000 ticks, 49 at 4,000, 69 at 6,000 from a placement), and a
+   freshly placed magma egg reads `age=1`. The earlier "first look 20 ticks after placement"
+   describes the `ARMING` path; on this path the engine's own placement tick ages it first.
+   The placement assertion is "fresh (0 or 1)"; the flame differential is what the leg proves.
+5. **The carried loot table was in the 1.21.1 array form** (`"conditions": [ {…} ]`) and rolled
+   **nothing**: `ctl break` answered `"drops":{}` beside a vanilla barrel that dropped 1, and
+   `/loot spawn … loot iceandfire:blocks/dragon_egg` answered `Dropped 0 items`. Converted to
+   26.3's singular pool `"condition": {"type": …}` shape it rolls one egg. Recorded as **this
+   table's** measurement — the campaign's own run of `mysticalagriculture` found the array form
+   not fatal, so no general rule is claimed from it here.
+
+### Deviations added by slice 2
+
+* The bite's line-of-sight test (`hasLineOfSight`) is not reproduced: the port's dragon
+  teleports to its target, so a wall between them is not a case the flight model can produce.
+* The bite state (the animation's tick and its target) lives in memory, keyed by the dragon's
+  UUID, like the egg's `ARMING` queue: a world reload restarts an animation. Nothing saved
+  depends on it (35 ticks of presentation).
+* Only the bite ground attack is ported: the jar's tail-whip and wing-blast variants
+  (`IafDragonAttacks.Ground`) are not, and `randomizeAttacks` is not modelled.
+
+### Fixed in slice 2 (the port's own defects, not the jar's)
+
+* **An unkillable dragon.** See 3 above: `entity_tick_pre` cancelled the death tick, so a
+  dragon at 0 health kept flying and biting. A player now sees a killed dragon disappear.
+* **A dead carried loot table.** See 5 above.
+
+### Coverage (every family the package carries)
+
+| Family | Status |
+|---|---|
+| `iceandfire:dragonegg_red` item: give, read back, place, unknown id refused | **tested** — leg C |
+| `iceandfire:dragon_egg` block: placement, `age` state read back, mined | **tested** — legs C, D, F |
+| egg incubation in flame, and the stone control | **tested** — legs D (differential), E |
+| the hatch: tamed, owned, 20 health, block replaced by air | **tested** — leg E |
+| `iceandfire:fire_dragon` entity type and its attributes (health 20.0) | **tested** — legs A, E |
+| wild pursuit (closing to the hold distance) | **tested** — leg A (the bite only lands after it closes) |
+| the melee bite: window, reach, damage, cadence | **tested** — leg A |
+| a tamed dragon does not bite / does not hunt | **tested** — leg B |
+| `/kill` removes a dragon | **tested** — leg B |
+| the egg block's loot table | **tested** — leg F (with a vanilla barrel as the differential) |
+| the creative tab `dragonegg_red` sits in | **not tested** — no headless path to the creative screen; its one item is leg C |
+| models, textures and lang (the block/item look) | **not tested** — `--headless` has no renderer; the own dragon model is slice 3 |
+
 
 ## Slice boundary
 
@@ -26,9 +155,10 @@ tackle reach.
 
 **Out (measured, in `FINDINGS.md` §3 and the gaps below):** the other 21 entity types,
 the ice egg (needs the frozen-egg block entity and a 1/500 water conversion) and the
-lightning egg (rain + sky visibility), roosts and their worldgen, breath weapons and
-melee damage, riding, ageing/growth, loot, the other 11 egg colours, the scale/armour/
-weapon families, the bestiary, and the dragon's own model and texture.
+lightning egg (rain + sky visibility), roosts and their worldgen, the **breath weapon**,
+riding, ageing/growth, the dragons' own loot tables, the other 11 egg colours, the
+scale/armour/weapon families, the bestiary, and the dragon's own model and texture.
+(The melee **bite** left this list in slice 2 — see below.)
 
 ## Upstream behaviour read (public source; never decompiled)
 
@@ -192,20 +322,25 @@ cargo horizon-mod fits  iceandfire.hmod      # "0b14f8a  made for"
    incubation**: only the egg item's placement is heard (`ItemPart::on_block_placed_by`), and
    its hook carries no level for a dispenser (no placer). An egg placed by any other route
    stays inert until something schedules it.
-7. **Melee and riding are *available* at this API but not in this slice.** The old slice's
-   gap ("a mob cannot deal damage and cannot ride") **no longer holds**: `EntityRef::hurt(host,
-   damage_type, amount, direct, causing)` and `EntityRef::start_riding(host, vehicle, force)`
-   exist and type-check against a hook's `ServerHost` (probe:
-   `ports/_shared/evidence/iceandfire/api-probe/`, `cargo check` exit 0). They are the next
-   slice (bite/breath, rider controls), not this migration's scope.
+7. **Melee is in (slice 2); breath and riding are not.** The old slice's gap ("a mob cannot
+   deal damage and cannot ride") **no longer holds**: `EntityRef::hurt(host, damage_type,
+   amount, direct, causing)` and `EntityRef::start_riding(host, vehicle, force)` exist and
+   type-check against a hook's `ServerHost` (probe:
+   `ports/_shared/evidence/iceandfire/api-probe/`, `cargo check` exit 0). The **bite** now
+   uses `hurt` and is proven in game (slice 2, above). Still out: the **breath weapon**
+   (`FireDragonEntity.breathAttack` places fire in a cone and the rider's fire charge is a
+   projectile entity the port does not carry) and the **rider controls** (a mount needs a
+   control surface and a saddle item family the port does not have).
 8. The other 21 entity types, the roosts, the worldgen, the other egg colours and the
    gear families are not started (see "Out").
-9. **No in-game leg in this migration.** The SDK format is run by `horizon-launcher`
-   (`cargo horizon-mod run` answers *"code mods run through the launcher's native build"*),
-   which is not installed here; the `.hnmod` e2e at the old pin (egg ages 0 on stone vs 3 on
-   magma, hatch to `Tamed 1b` + `Owner` + health 20.0, dragon rises 68.3 → 71.0 in 30 ticks,
-   wild dragon closes 16.15 → 1.35) is the last in-game evidence and is quoted in
-   `VALIDATION.md`. `check`+`fits`+`cargo test`+`clippy` are this migration's evidence.
+9. ~~**No in-game leg in this migration.**~~ **Closed in slice 2**: `tools/e2e.sh` runs on a
+   launcher-built game (`ports/tools/launcher-game.sh`, launcher 0.2.92, Nightly
+   `0a875da`) and the logs are `ports/_shared/evidence/iceandfire-e2e/` (`PASS`+`EXIT:0`, a
+   selftest and a control leg at `EXIT:1`, `check-e2e-logs.py --strict` green). It covers the
+   carried content as well as the bite (see **Coverage**). The old `.hnmod` e2e (egg ages 0 on
+   stone vs 3 on magma, hatch to `Tamed 1b` + `Owner` + health 20.0, the rise 68.3 → 71.0 in
+   30 ticks, the wild dragon closing 16.15 → 1.35) stays quoted in `VALIDATION.md` as the
+   pre-SDK record.
 
 ## Deviations (design choices, not defects)
 
@@ -262,18 +397,34 @@ worth no upstream report (the jar does not have this bug).
 
 ## Verification
 
-See `VALIDATION.md` and `ports/_shared/evidence/iceandfire/`. One deliverable:
-`ports/iceandfire/iceandfire.hmod` (**41,200 B**, sha256
-`b4023b521155e131ae7f17005c79fab8c5735a0ccaf86e2702692fdb59712109`, 21 entries, deterministic
-across two builds), Licence files inside; `check` prints
-`native-mod, format native-1/0b14f8a…/e59da90…, for 26.3`, exit 0; `fits` prints
-`0b14f8a  made for`, exit 0; `cargo test` **18 passed** (15 runtime byte-identical + 3 glue).
+See `VALIDATION.md` and `ports/_shared/evidence/iceandfire{,-e2e}/`. One deliverable:
+
+```
+ports/iceandfire/iceandfire.hmod   43,248 B
+   91b36a165ade990bb7b4b7b52554b6c768eceeef435e8248039ae53e32d1d769   20 entries
+```
+
+Two `cargo horizon-mod build` runs with `rm -f Cargo.lock` before each are `cmp`-identical
+(`sdk-build-1.log`, `sdk-build-2.log`); no `Cargo.lock` is packed; the licence files are
+inside. `check` prints
+`iceandfire 0.2.1 (native-mod, format native-1/0a875da…/e59da90…, for 26.3)`, `43,248 bytes,
+SHA-256 91b36a16…`, exit 0 (`sdk-check.log`, which prints the file's sha before it runs).
+`fits --build 0a875da` prints `0a875da  made for` and `fits --build 0b14f8a` prints
+`0b14f8a  fits`, both exit 0, each log printing the sha it read (`sdk-fits.log`,
+`sdk-fits-other.log`). `cargo test` **26 passed** (18 carried + 8 bite); clippy `-D warnings`
+clean (`sdk-test.log`, `sdk-clippy.log`). `verify-sdk-package.py iceandfire` → **1/1**.
+In game: `e2e-default.log` `PASS` + `EXIT:0`; `e2e-selftest.log` and `e2e-control.log`
+`FAIL` + `EXIT:1`; `e2e-red-bite-absent.log` (the previous 0.2.0 package) `FAIL` + `EXIT:1`;
+`check-e2e-logs.py iceandfire-e2e --strict` → 4/4 ok.
 
 ## Changelog for the resubmission
 
-> Supersedes #925, closed because Horizon retired `.hnmod` (#17992). Changes: flat SDK
-> package with `api = "0.2"` and `[native]` pinned to `0b14f8a`; hooks rewritten as
-> `impl mod_api::Hooks` methods against typed hosts/events (13 hooks/helpers mapped, 3
-> recorded as gaps); `runtime.rs` and its tests unchanged.
+> Supersedes the closed 0.2.0 submission (#925's SDK successor), which targeted `0b14f8a`.
+> This 0.2.1 repins the package to the campaign's Nightly `0a875da` (`none of the 176 items
+> it uses changed`) and adds the dragon's **bite**: a wild dragon that reaches its target
+> bites for the jar's `ATTACK_DAMAGE` (1 at age 0) in a 35-tick animation, a tamed dragon
+> never does, and a killed dragon is now removed. The 0.1.0 `.hnmod` hooks stay mapped in the
+> 0.2.0 record below; the carried egg item, egg block, dragon type and loot table are
+> unchanged apart from the loot table's 26.3 pool shape. The package now has an in-game leg.
 
-Skills: superpowers/using-superpowers,brainstorming,writing-plans,test-driven-development,systematic-debugging,verification-before-completion; BeautifulRust/rust-best-practices,rust-port
+Skills: superpowers/using-superpowers,brainstorming,writing-plans,test-driven-development,systematic-debugging,verification-before-completion; BeautifulRust/rust-best-practices

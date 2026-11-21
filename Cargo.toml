@@ -6,7 +6,7 @@
 #
 # Cargo's name and version are not the mod's identity: horizon-mod.toml is.
 name = "iceandfire"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 license = "LGPL-3.0-or-later"
 description = "The fire dragon for Horizon: egg incubation in flame, the hatch, and flight"

@@ -2,20 +2,17 @@
   "type": "minecraft:block",
   "pools": [
     {
-      "rolls": 1,
+      "condition": {
+        "type": "minecraft:survives_explosion"
+      },
       "entries": [
         {
           "type": "minecraft:item",
           "name": "iceandfire:dragonegg_red"
         }
       ],
-      "conditions": [
-        {
-          "condition": {
-            "type": "minecraft:survives_explosion"
-          }
-        }
-      ]
+      "rolls": 1
     }
-  ]
+  ],
+  "random_sequence": "iceandfire:blocks/dragon_egg"
 }

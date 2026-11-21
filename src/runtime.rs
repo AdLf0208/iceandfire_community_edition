@@ -53,6 +53,136 @@ pub const FLIGHT_SPEED: f64 = 0.78;
 /// (`IafDragonLogic.java:112-118`).
 pub const TACKLE_REACH: f64 = 2.0;
 
+/// The fire dragon's bite animation length in ticks
+/// (`FireDragonEntity.java:52`: `ANIMATION_BITE = Animation.create(35)`).
+pub const BITE_ANIM_TICKS: i32 = 35;
+
+/// The first tick of a bite that can land its hit (`IafDragonLogic.java:406`:
+/// `getAnimationTick() > 15 && getAnimationTick() < 25`).
+pub const BITE_HIT_FROM: i32 = 16;
+
+/// The last tick of that window (`IafDragonLogic.java:406`).
+pub const BITE_HIT_UNTIL: i32 = 24;
+
+/// How far the dragon's own box is grown to notice a target it can bite
+/// (`FireDragonEntity.java:107`: `inflate(2.5F + getRenderSize() * 0.33F)`).
+pub const BITE_AGGRO_INFLATE: f64 = 2.5;
+
+/// The render-size term of that growth (`FireDragonEntity.java:107`).
+pub const BITE_AGGRO_SIZE_FACTOR: f64 = 0.33;
+
+/// The reach of a landed bite, before its base
+/// (`IafDragonLogic.java:405`: `getRenderSize() * 0.2574 * 2 + 2`).
+pub const BITE_REACH_FACTOR: f64 = 0.2574;
+
+/// The base reach of a landed bite (`IafDragonLogic.java:405`).
+pub const BITE_REACH_BASE: f64 = 2.0;
+
+/// A stage-1 dragon's render size at age 0: `DragonSize.GROWTH_STAGES[0].x0`
+/// is 1 and the per-day step is multiplied by `ageFactor` 0
+/// (`DragonSize.java:6-10`, `DragonBaseEntity.getRenderSize():1888`).
+pub const AGE0_RENDER_SIZE: f64 = 1.0;
+
+/// A dragon's `ATTACK_DAMAGE` at age 0: `FireDragonEntity.java:48` passes a
+/// minimum of 1, `DragonBaseEntity.bakeAttributes` adds 1, and the 125-day
+/// interpolation starts there.
+pub const AGE0_ATTACK_DAMAGE: f32 = 1.0;
+
+/// An axis-aligned box as `[[min x, y, z], [max x, y, z]]`, the shape the
+/// engine's `getBoundingBox` reports.
+pub type Box = [[f64; 3]; 2];
+
+/// The dragon's box grown by the aggro inflation: the volume in which it
+/// starts a bite.
+#[must_use]
+pub fn aggro_inflate() -> f64 {
+    BITE_AGGRO_INFLATE + AGE0_RENDER_SIZE * BITE_AGGRO_SIZE_FACTOR
+}
+
+/// How far a landed bite reaches at age 0.
+#[must_use]
+pub fn bite_reach() -> f64 {
+    AGE0_RENDER_SIZE * BITE_REACH_FACTOR * 2.0 + BITE_REACH_BASE
+}
+
+/// Whether a target `distance` blocks away is inside a bite's reach.
+#[must_use]
+pub fn within_reach(distance: f64) -> bool {
+    distance < bite_reach()
+}
+
+/// `shape` grown by `by` blocks on every side, as `AABB.inflate` does.
+#[must_use]
+pub fn grown(shape: Box, by: f64) -> Box {
+    let [min, max] = shape;
+    [
+        [min[0] - by, min[1] - by, min[2] - by],
+        [max[0] + by, max[1] + by, max[2] + by],
+    ]
+}
+
+/// Whether two boxes share any point (`AABB.intersects`).
+#[must_use]
+pub fn intersects(a: Box, b: Box) -> bool {
+    (0..3).all(|i| a[0][i] < b[1][i] && b[0][i] < a[1][i])
+}
+
+/// What a bite has done at one tick of its animation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BiteTick {
+    /// The bite lands its hit on this tick.
+    pub hit: bool,
+    /// The animation is over; the dragon may start another bite.
+    pub over: bool,
+}
+
+/// One bite in progress: the animation's own tick and whether its hit has landed.
+///
+/// Upstream applies the hit on every tick of the window; the engine's hurt cooldown
+/// absorbs all but the first, so this state applies it once. The animation counts its
+/// own ticks rather than reading the entity's: `EntityRef::tick_count` reads **0** at
+/// `entity_tick_pre` on this pin (measured in game, `notes.md`), so an animation keyed
+/// on it would never reach its window. One `step` is one dragon tick.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Bite {
+    tick: i32,
+    landed: bool,
+}
+
+impl Bite {
+    /// A bite that starts now.
+    #[must_use]
+    pub fn start() -> Self {
+        Bite {
+            tick: 0,
+            landed: false,
+        }
+    }
+
+    /// Advance the animation one tick: whether the bite lands now and whether it is over.
+    pub fn step(&mut self) -> BiteTick {
+        self.tick += 1;
+        let tick = bite_tick(self.tick);
+        let hit = tick.hit && !self.landed;
+        if hit {
+            self.landed = true;
+        }
+        BiteTick {
+            hit,
+            over: tick.over,
+        }
+    }
+}
+
+/// What a bite does `elapsed` ticks after it started.
+#[must_use]
+pub fn bite_tick(elapsed: i32) -> BiteTick {
+    BiteTick {
+        hit: (BITE_HIT_FROM..=BITE_HIT_UNTIL).contains(&elapsed),
+        over: elapsed >= BITE_ANIM_TICKS,
+    }
+}
+
 /// Blocks an egg incubates in. Upstream asks its `uranus` library's
 /// `BlockUtil.isBurning` (`DragonEggEntity.java:220`), which is not in the
 /// mod's repository; the item's own description says "place in an open flame"
@@ -420,6 +550,111 @@ mod tests {
         assert_eq!(
             format_uuid(0x1234_5678_9abc_def0_1122_3344_5566_7788),
             "12345678-9abc-def0-1122-334455667788"
+        );
+    }
+
+    // --- the bite (slice 2) -------------------------------------------------------
+
+    #[test]
+    fn a_bite_animation_is_the_jars_35_ticks() {
+        assert!(
+            !bite_tick(34).over,
+            "34 ticks is still inside the animation"
+        );
+        assert!(bite_tick(35).over, "35 ticks ends it (FireDragonEntity:52)");
+    }
+
+    #[test]
+    fn a_bite_lands_only_inside_its_window() {
+        assert!(!bite_tick(15).hit, "tick 15 is before the window");
+        assert!(bite_tick(16).hit, "tick 16 is the window's first tick");
+        assert!(bite_tick(24).hit, "tick 24 is the window's last tick");
+        assert!(!bite_tick(25).hit, "tick 25 is past the window");
+    }
+
+    #[test]
+    fn a_bite_lands_once_however_the_window_is_walked() {
+        let mut bite = Bite::start();
+        let mut hits = Vec::new();
+        let mut over_at = None;
+        for tick in 1..=BITE_ANIM_TICKS {
+            let step = bite.step();
+            if step.hit {
+                hits.push(tick);
+            }
+            if step.over {
+                over_at = Some(tick);
+            }
+        }
+        assert_eq!(
+            hits,
+            vec![BITE_HIT_FROM],
+            "one landed bite, on the window's first tick (the engine's hurt cooldown absorbs the rest)"
+        );
+        assert_eq!(
+            over_at,
+            Some(BITE_ANIM_TICKS),
+            "the animation ends on its 35th tick"
+        );
+    }
+
+    #[test]
+    fn a_dragon_lands_one_bite_per_animation_and_starts_the_next() {
+        let mut bite = Bite::start();
+        let mut hits = 0;
+        for _ in 1..=(2 * BITE_ANIM_TICKS) {
+            let step = bite.step();
+            if step.hit {
+                hits += 1;
+            }
+            if step.over {
+                bite = Bite::start();
+            }
+        }
+        assert_eq!(hits, 2, "one landed bite per 35-tick animation");
+    }
+
+    #[test]
+    fn the_aggro_box_at_age_zero_is_the_jars_two_point_eight_three_blocks() {
+        let inflate = aggro_inflate();
+        assert!(
+            (inflate - 2.83).abs() < 1e-9,
+            "2.5 + renderSize 1.0 * 0.33 = 2.83, got {inflate}"
+        );
+    }
+
+    #[test]
+    fn a_target_just_inside_the_aggro_box_is_bitten_and_one_outside_is_not() {
+        let dragon = [[0.0, 0.0, 0.0], [0.6, 1.95, 0.6]];
+        // A 0.6-wide player box whose near face is 2.7 blocks away along x.
+        let near = [[3.3, 0.0, 0.0], [3.9, 1.8, 0.6]];
+        assert!(
+            intersects(grown(dragon, aggro_inflate()), near),
+            "a 2.7-block gap is inside the 2.83-block aggro box"
+        );
+        let far = [[3.5, 0.0, 0.0], [4.1, 1.8, 0.6]];
+        assert!(
+            !intersects(grown(dragon, aggro_inflate()), far),
+            "a 2.9-block gap is outside it"
+        );
+    }
+
+    #[test]
+    fn a_bite_reaches_the_jars_two_and_a_half_blocks() {
+        let reach = bite_reach();
+        assert!(
+            (reach - 2.5148).abs() < 1e-9,
+            "renderSize 1.0 * 0.2574 * 2 + 2 = 2.5148, got {reach}"
+        );
+        assert!(within_reach(2.5), "2.5 blocks is inside the reach");
+        assert!(!within_reach(2.6), "2.6 blocks is outside it");
+    }
+
+    #[test]
+    fn at_age_zero_a_bite_takes_the_jars_attack_damage() {
+        assert!(
+            (AGE0_ATTACK_DAMAGE - 1.0).abs() < f32::EPSILON,
+            "FireDragonEntity's ATTACK_DAMAGE attribute is 1 at age 0"
         );
     }
 }
